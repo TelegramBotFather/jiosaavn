@@ -8,7 +8,6 @@ from jiosaavn.bot import Bot
 from api.jiosaavn import Jiosaavn
 
 import aiohttp
-import requests
 import aiofiles
 from pyrogram import filters
 from mutagen.mp4 import MP4, MP4Cover
@@ -138,14 +137,19 @@ async def download_tool(client: Bot, message: Message|CallbackQuery, msg: Messag
         action=ChatAction.RECORD_AUDIO
     )
 
-    async with aiohttp.ClientSession() as session: 
-        async with session.get(image_url) as response:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+        "Referer": "https://www.jiosaavn.com/"
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.get(image_url, headers=headers) as response:
             async with aiofiles.open(thumbnail_location, "wb") as file:
                 await file.write(await response.read())
 
     pre_audio = await Jiosaavn().download_song(song_id=song_id, bitrate=bitrate, download_location=pre_file_name)
-    img_response = requests.get(image_url)
-    cover_art = img_response.content  # Get image as bytes
+    async with aiohttp.ClientSession() as session:
+        async with session.get(image_url, headers=headers) as response:
+            cover_art = await response.read()
     audio = MP4(pre_audio)
     audio["\xa9nam"] = title
     audio["\xa9alb"] = album
@@ -156,7 +160,7 @@ async def download_tool(client: Bot, message: Message|CallbackQuery, msg: Messag
     audio["covr"] = [MP4Cover(cover_art, imageformat=MP4Cover.FORMAT_JPEG)]
     audio.save()
     os.rename(pre_audio, file_name)
-    
+
     await msg.edit(f"__📤 Uploading {title}__")
     await client.send_chat_action(
         chat_id=message.from_user.id,
@@ -172,8 +176,8 @@ async def download_tool(client: Bot, message: Message|CallbackQuery, msg: Messag
         thumb=thumbnail_location,
         performer=singers,
         reply_to_message_id=msg.reply_to_message.id,
-        )
-    
+    )
+
     if not song_file:
         return await msg.edit(text=f"Failed to upload {song}")
 
