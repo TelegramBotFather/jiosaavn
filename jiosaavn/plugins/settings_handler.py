@@ -3,27 +3,39 @@ import random
 import asyncio
 
 from jiosaavn.bot import Bot
-from jiosaavn.plugins.text import TEXT
 from pyrogram import filters
 from pyrogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.errors import MessageNotModified
 
 logger = logging.getLogger(__name__)
 
+# Telegram-supported reaction emojis
+VALID_REACTION_EMOJIS = ["👍", "👎", "😊", "😢", "😍", "🔥", "🎉"]
+
 @Bot.on_message(filters.command("settings"))
 @Bot.on_callback_query(filters.regex(r"^settings"))
 async def settings(client: Bot, message: Message|CallbackQuery):
-    if getattr(message, "text", None):
+    # Try to get random emoji
+    try:
+        from jiosaavn.plugins.text import TEXT
         random_emoji = random.choice(TEXT.EMOJI_LIST)
+    except (ImportError, AttributeError) as e:
+        logger.warning(f"Failed to access TEXT.EMOJI_LIST: {e}. Using default emoji list.")
+        random_emoji = random.choice(VALID_REACTION_EMOJIS)
+
+    if getattr(message, "text", None):
         try:
             await client.send_reaction(
                 chat_id=message.chat.id,
                 message_id=message.id,
                 emoji=random_emoji,
-                big=True  # Optional
+                big=True
             )
         except AttributeError:
-            pass 
+            logger.warning("Failed to send reaction due to AttributeError")
+        except Exception as e:
+            logger.error(f"Error sending reaction: {e}")
+    
     await asyncio.sleep(0.5)
     if isinstance(message, Message):
         msg = await message.reply("**Processing...**", quote=True)
@@ -32,12 +44,20 @@ async def settings(client: Bot, message: Message|CallbackQuery):
         await message.answer()
         data = message.data.split("#")
         if len(data) > 1:
-            _, key, value = data
-            await client.db.update_user(message.from_user.id, key, value)
+            try:
+                _, key, value = data
+                if key in ["type", "quality"] and value:  # Validate key and value
+                    await client.db.update_user(message.from_user.id, key, value)
+                    logger.info(f"Updated user {message.from_user.id} with {key}={value}")
+                else:
+                    logger.warning(f"Invalid callback data: {message.data}")
+            except Exception as e:
+                logger.error(f"Failed to update user settings: {e}")
+                await msg.edit("Error updating settings. Please try again.")
 
     user = await client.db.get_user(message.from_user.id)
-    type = user['type']
-    quality = user['quality']
+    type = user.get('type', 'all')
+    quality = user.get('quality', '320kbps')
 
     all = '✅ All' if type == 'all' else 'All'
     albums = '✅ Albums' if type == 'albums' else 'Albums' 
@@ -60,7 +80,7 @@ async def settings(client: Bot, message: Message|CallbackQuery):
             InlineKeyboardButton(playlists, callback_data='settings#type#playlists'),
         ],
         [
-            InlineKeyboardButton("𝐀𝐮𝐝𝐢𝐨 𝐐𝐮𝐚𝐮𝐥𝐢𝐭𝐲 🔊", callback_data="dummy"),
+            InlineKeyboardButton("𝐀𝐮𝐝𝐢𝐨 𝐐𝐮𝐚𝐥𝐢𝐭𝐲 🔊", callback_data="dummy"),
         ],
         [
             InlineKeyboardButton(quality_320, callback_data='settings#quality#320kbps'),
@@ -73,9 +93,13 @@ async def settings(client: Bot, message: Message|CallbackQuery):
 
     text = '**Select the search result type and music quality 🧏‍♂️**'
     try:
-        await msg.edit(text, reply_markup=InlineKeyboardMarkup(buttons))
+        if msg.text != text or msg.reply_markup != InlineKeyboardMarkup(buttons):
+            await msg.edit(text, reply_markup=InlineKeyboardMarkup(buttons))
     except MessageNotModified:
-        pass
+        logger.warning("Message not modified in settings_handler")
+    except Exception as e:
+        logger.error(f"Failed to edit settings message: {e}")
+        await msg.edit("An error occurred while updating settings.")
 
 @Bot.on_callback_query(filters.regex(r"^dummy$"))
 async def dummy(client: Bot, callback: CallbackQuery):
