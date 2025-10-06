@@ -1,8 +1,11 @@
 import json
 from typing import Dict, Literal, Optional, Any, Union, List
+import logging
 
 import aiohttp
 import aiofiles
+
+logger = logging.getLogger(__name__)
 
 class Jiosaavn:
     """
@@ -30,9 +33,14 @@ class Jiosaavn:
         Raises:
             RuntimeError: If there is an error during the request or if the response cannot be decoded as JSON.
         """
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+            "Referer": "https://www.jiosaavn.com/",
+            "Origin": "https://www.jiosaavn.com"
+        }
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(url=url, params=params) as response:
+                async with session.get(url=url, params=params, headers=headers) as response:
                     response.raise_for_status()  # Raise an exception for HTTP errors
                     response_text = await response.text()
                     return json.loads(response_text)
@@ -342,9 +350,15 @@ class Jiosaavn:
             raise ValueError("Unable to retrieve the download URL for the song.")
 
         url = download_data["auth_url"]
+        logger.info(f"Downloading song from: {url}")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
+            "Referer": "https://www.jiosaavn.com/",
+            "Origin": "https://www.jiosaavn.com"
+        }
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
+            async with session.get(url, headers=headers) as response:
                 response.raise_for_status()
                 async with aiofiles.open(download_location, "wb") as file:
                     while True:
