@@ -8,6 +8,8 @@ try:
 except ImportError:
     pass
 
+from dotenv import load_dotenv
+
 def main():
     # Get logging configurations
     logging.config.fileConfig('logging.conf')
