@@ -67,19 +67,24 @@ def main():
     signal.signal(signal.SIGINT, handle_exit)
     signal.signal(signal.SIGTERM, handle_exit)
 
+    loop = asyncio.get_event_loop()
+
     async def run_all():
-        # Run both bot and ping task concurrently
         ping_task = asyncio.create_task(ping_url())
         try:
-            await bot_instance.run()
+            await bot_instance.run()  # bot runs inside same loop
         finally:
-            # Stop the ping loop once bot exits
             global running
             running = False
             ping_task.cancel()
             logging.info("Bot stopped. Exiting...")
 
-    asyncio.run(run_all())
+    try:
+        loop.run_until_complete(run_all())
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("Received shutdown signal.")
+    finally:
+        loop.close()
 
 
 if __name__ == "__main__":
