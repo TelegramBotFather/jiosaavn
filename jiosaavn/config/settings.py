@@ -13,3 +13,5 @@ BOT_COMMANDS = (
 DATABASE_URL = getenv("DATABASE_URL", None)
 HOST = getenv("HOST", "0.0.0.0")
 PORT = int(getenv("PORT", "8080"))
+KOYEB_URL = getenv("KOYEB_URL")
+PING_INTERVAL = int(getenv("PING_INTERVAL", 600))

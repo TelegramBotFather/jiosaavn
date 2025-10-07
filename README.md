@@ -58,6 +58,8 @@ BOT_TOKEN=Your_Bot_Token
 PORT=8080
 OWNER_ID=your_user_id
 DATABASE_URL=mongodb_uri
+KOYEB_URL=https://your-koyeb-app-name.koyeb.app
+PING_INTERVAL=600
 ```
 
 `API_ID` : Goto [my.telegram.org](https://my.telegram.org) to obtain this.
@@ -74,7 +76,13 @@ DATABASE_URL=mongodb_uri
 
 <a href="https://www.youtube.com/watch?v=HhHzCfrqsoE"><img alt="mongodb" src="./assets/mongo.png" style="border-radius: 50%; height: 100px; width: 100px"></a>
 
-   
+`KOYEB_URL` (Optional) : Your hosted Koyeb app URL. When set, the bot will periodically send requests to this URL to keep the server active on free-tier hosting. Example: https://your-app-name.koyeb.app
+
+`PING_INTERVAL` (Optional) : Time interval (in seconds) between each ping request. Defaults to 600 (10 minutes). You can adjust it if needed.
+
+**💡 Tip:** 
+If you’re deploying on Koyeb, set KOYEB_URL to your app’s public URL so that the periodic ping prevents it from idling or shutting down due to inactivity.
+
 ## Running Methods
 
 1. **Deploy to Heroku**:
