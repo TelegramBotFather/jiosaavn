@@ -7,7 +7,7 @@ import sys
 
 import aiohttp
 from dotenv import load_dotenv
-from Jiosaavn.config.settings import KOYEB_URL, PING_INTERVAL
+from jiosaavn.config.settings import KOYEB_URL, PING_INTERVAL
 
 try:
     import uvloop
