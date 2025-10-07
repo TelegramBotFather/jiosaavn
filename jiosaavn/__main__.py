@@ -3,8 +3,7 @@ import logging.config
 import importlib
 import asyncio
 import signal
-import sys
-
+import threading
 import aiohttp
 from dotenv import load_dotenv
 from jiosaavn.config.settings import KOYEB_URL, PING_INTERVAL
@@ -38,11 +37,19 @@ async def ping_url():
             await asyncio.sleep(PING_INTERVAL or 600)  # Default fallback: 10 mins
 
 
-def handle_exit(signum, frame):
+def start_ping_loop():
+    """Run the ping_url loop in a separate event loop (background thread)."""
+    asyncio.set_event_loop(asyncio.new_event_loop())
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(ping_url())
+
+
+def handle_exit(signum=None, frame=None):
     """Handle termination signals gracefully."""
     global running
-    logging.info("🛑 Shutting down ping loop...")
-    running = False
+    if running:
+        logging.info("🛑 Shutting down ping loop...")
+        running = False
 
 
 def main():
@@ -60,31 +67,22 @@ def main():
     load_dotenv()
 
     # Import and initialize bot
-    bot = importlib.import_module("jiosaavn.bot").Bot
-    bot_instance = bot()
+    bot_module = importlib.import_module("jiosaavn.bot")
+    bot = bot_module.Bot()
 
     # Register signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, handle_exit)
     signal.signal(signal.SIGTERM, handle_exit)
 
-    loop = asyncio.get_event_loop()
+    # Start ping loop in background thread
+    threading.Thread(target=start_ping_loop, daemon=True).start()
 
-    async def run_all():
-        ping_task = asyncio.create_task(ping_url())
-        try:
-            await bot_instance.run()  # bot runs inside same loop
-        finally:
-            global running
-            running = False
-            ping_task.cancel()
-            logging.info("Bot stopped. Exiting...")
+    # Run the bot (Pyrogram manages its own loop)
+    bot.run()
 
-    try:
-        loop.run_until_complete(run_all())
-    except (KeyboardInterrupt, SystemExit):
-        logging.info("Received shutdown signal.")
-    finally:
-        loop.close()
+    # When bot stops, stop the ping loop too
+    handle_exit()
+    logging.info("✅ Bot stopped. Exiting...")
 
 
 if __name__ == "__main__":
